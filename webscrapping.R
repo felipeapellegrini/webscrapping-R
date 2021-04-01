@@ -48,9 +48,11 @@ pages <- 1:base::ceiling(outcome / page_outcome)
 # declara objeto de resultados
 houses <- base::data.frame()
 
+# estrutura de loop para captura e armazenamento dos dados
 for (p in pages) {
   page_link <- base::paste0(base_link,route_params,pagination,p,query_params)
   remDr$navigate(page_link)
+  print(page_link)
   base::Sys.sleep(5)
   html <- rvest::read_html(remDr$getPageSource()[[1]])
   
@@ -64,7 +66,8 @@ for (p in pages) {
   paths <- html %>% 
     rvest::html_nodes("[class='results__content']") %>%
     rvest::html_nodes("[class='property-card__content-link js-card-title']") %>%
-    rvest::html_attr("href")
+    rvest::html_attr("href") %>%
+    stringr::str_remove("/")
   
   # armazena precos
   prices <- html %>%
@@ -75,20 +78,27 @@ for (p in pages) {
     stringr::str_remove_all(" /Mês")
   
   # armazena resultados no dataframe
-  base_link <- paste0(base_link,paths)
-  houses <- rbind(data.frame(descriptions, base_link, prices), houses)
+  house_link <- base::paste0(base_link,paths)
+  houses <- base::rbind(data.frame(descriptions, house_link, prices), houses)
+  
 }
+colnames(houses) <- c("Descrição", "Preço", "Link")
+xlsx::write.xlsx(houses, 'houses.xlsx', col.names = c( 'Casa', 'Preço', 'Link'))
 
-xlsx::write.xlsx(houses, 'houses.xlsx')
 
+nome <- c("Raquel")
 
-
+mail_template <- base::paste0(
+  '<h1>Olá ', nome,'!</h1> Tudo bem?',
+  '<br>',
+  '<p> Veja o que eu encontrei na internet sobre casas para alugar </p>'
+)
 
 mailR::send.mail(
   from = "noreply.houses@gmail.com",
   to = "noreply.houses@gmail.com",
   subject = 'Test email',
-  body = 'Veja o que eu encontrei',
+  body = mail_template,
   html = T,
   smtp = list(
     host.name = "smtp.gmail.com",
@@ -101,3 +111,8 @@ mailR::send.mail(
   attach.files = 'C:/R-Projects/webscrapping-imoveis/houses.xlsx',
   send = T
 )
+
+
+?xlsx::write.xlsx
+
+
