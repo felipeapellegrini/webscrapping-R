@@ -9,6 +9,10 @@ base::rm(list = ls())
 # carrega pckgs 
 pacman::p_load('RSelenium', 'plyr', 'dplyr', 'rvest', 'stringr', 'xlsx', 'mailR')
 
+# ler o arquivo local (p/ não usar banco de dados)
+local_file <- xlsx::read.xlsx('houses.xlsx', 1) %>%
+  base::as.data.frame()
+
 # abstracao dos links por partes 
 base_link <- c('https://www.vivareal.com.br/')
 route_params <- c('aluguel/sp/sao-jose-do-rio-preto/condominio_residencial/')
@@ -82,22 +86,45 @@ for (p in pages) {
   houses <- base::rbind(data.frame(descriptions, house_link, prices), houses)
   
 }
-colnames(houses) <- c("Descrição", "Preço", "Link")
-xlsx::write.xlsx(houses, 'houses.xlsx', col.names = c( 'Casa', 'Preço', 'Link'))
 
+# nomeia colunas do df
+base::colnames(houses) <- c("Descricao", "Preco", "Link")
 
-nome <- c("Raquel")
+# armazena os novos imoveis anunciados
+new_reg <- dplyr::anti_join(houses, local_file, by = 'Link') %>%
+  base::as.data.frame()
 
+# armazena os imoveis anunciados antes que não estão mais anunciados
+deleted <- dplyr::anti_join(local_file, houses, by = 'Link') %>%
+  base::as.data.frame()
+
+# gera nova planilha com os imóveis anunciados
+xlsx::write.xlsx(houses, 'houses.xlsx', sheetName = 'houses', row.names = FALSE)
+
+# gerando variáveis para montar e-mail
+nome <- c("Nome")
+mail_houses <- c()
+for (x in 1:5) {
+  mail_houses[x] <- paste(houses[x,1],"<br>",
+                    houses[x,2],"<br>",
+                    houses[x,3],"<br><br><br>")
+}
+
+# gerando html de template para e-mail
 mail_template <- base::paste0(
-  '<h1>Olá ', nome,'!</h1> Tudo bem?',
-  '<br>',
-  '<p> Veja o que eu encontrei na internet sobre casas para alugar </p>'
+  "<h1>Olá ", nome,"!</h1><p>Tudo bem?<p>",
+  "<br>",
+  "<p>Veja o que eu encontrei na internet sobre casas para alugar </p> <br>",
+  "<p>Ah, no final do e-mail eu anexei uma planilha com todas as ",outcome," casas encontradas.",
+  "<br><br>",
+  mail_houses[1], mail_houses[2], mail_houses[3], mail_houses[4], mail_houses[5]
 )
 
+# enviando e-mail com mailR
 mailR::send.mail(
   from = "noreply.houses@gmail.com",
   to = "noreply.houses@gmail.com",
-  subject = 'Test email',
+  subject = 'Encontre seu novo lar, doce lar!',
   body = mail_template,
   html = T,
   smtp = list(
@@ -111,8 +138,3 @@ mailR::send.mail(
   attach.files = 'C:/R-Projects/webscrapping-imoveis/houses.xlsx',
   send = T
 )
-
-
-?xlsx::write.xlsx
-
-
