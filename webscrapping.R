@@ -3,56 +3,56 @@
 # configura pasta de trabalho
 base::setwd('C:/R-Projects/webscrapping-imoveis')
 
-# zera td
+# zera td ----
 base::rm(list = ls())
 
-# carrega pckgs 
+# carrega pckgs ----
 pacman::p_load('RSelenium', 'plyr', 'dplyr', 'rvest', 'stringr', 'xlsx', 'mailR')
 
-# ler o arquivo local (p/ não usar banco de dados)
+# ler o arquivo local (p/ não usar banco de dados) ----
 local_file <- xlsx::read.xlsx('houses.xlsx', 1) %>%
   base::as.data.frame()
 
-# abstracao dos links por partes 
+# abstracao dos links por partes  ----
 base_link <- c('https://www.vivareal.com.br/')
 route_params <- c('aluguel/sp/sao-jose-do-rio-preto/condominio_residencial/')
 pagination <- c('?pagina=')
 query_params <- c('#ordenar-por=preco:ASC&preco-ate=3000&preco-desde=2000&quartos=2&tipos=condominio_residencial,casa_residencial')
 
-# Iniciar um servidor Selenium e criar instancia de browser
+# Iniciar um servidor Selenium e criar instancia de browser ----
 rD <- RSelenium::rsDriver(browser = 'chrome', port = 4545L, chromever = '89.0.4389.23')
 remDr <- rD[['client']] # browser 
 
 #rD$client$open() # caso o navegador feche
 
-# navegar p/ site 
+# navegar p/ site  ----
 remDr$navigate(base::paste0(base_link,route_params,query_params))
 base::Sys.sleep(5) # POG espera a pagina renderizar completamente
 
 
-# armazena html do site
+# armazena html do site ----
 html <- rvest::read_html(remDr$getPageSource()[[1]])
 
-# armazena numero de resultados p/ calcular qtd de paginas
+# armazena numero de resultados p/ calcular qtd de paginas ----
 outcome <- html %>% 
   rvest::html_nodes(".js-total-records") %>%
   rvest::html_text2() %>%
   base::as.numeric()
 
-# armazena resultados por pagina
+# armazena resultados por pagina ----
 page_outcome <- html %>%
   rvest::html_nodes("[class='property-card__content-link js-card-title']") %>%
   rvest::html_text2() %>%
   base::length() %>%
   base::as.numeric()
 
-# calcula qtd de paginas
+# calcula qtd de paginas ----
 pages <- 1:base::ceiling(outcome / page_outcome)
 
-# declara objeto de resultados
+# declara objeto de resultados ----
 houses <- base::data.frame()
 
-# estrutura de loop para captura e armazenamento dos dados
+# estrutura de loop para captura e armazenamento dos dados ----
 for (p in pages) {
   page_link <- base::paste0(base_link,route_params,pagination,p,query_params)
   remDr$navigate(page_link)
@@ -87,21 +87,21 @@ for (p in pages) {
   
 }
 
-# nomeia colunas do df
+# nomeia colunas do df ---- 
 base::colnames(houses) <- c("Descricao", "Preco", "Link")
 
-# armazena os novos imoveis anunciados
+# armazena os novos imoveis anunciados ----
 new_reg <- dplyr::anti_join(houses, local_file, by = 'Link') %>%
   base::as.data.frame()
 
-# armazena os imoveis anunciados antes que não estão mais anunciados
+# armazena os imoveis anunciados antes que não estão mais anunciados ----
 deleted <- dplyr::anti_join(local_file, houses, by = 'Link') %>%
   base::as.data.frame()
 
-# gera nova planilha com os imóveis anunciados
+# gera nova planilha com os imóveis anunciados ----
 xlsx::write.xlsx(houses, 'houses.xlsx', sheetName = 'houses', row.names = FALSE)
 
-# gerando variáveis para montar e-mail
+# gerando variáveis para montar e-mail ----
 nome <- c("Nome")
 mail_houses <- c()
 for (x in 1:5) {
@@ -110,7 +110,7 @@ for (x in 1:5) {
                     houses[x,3],"<br><br><br>")
 }
 
-# gerando html de template para e-mail
+# gerando html de template para e-mail ----
 mail_template <- base::paste0(
   "<h1>Olá ", nome,"!</h1><p>Tudo bem?<p>",
   "<br>",
@@ -120,7 +120,7 @@ mail_template <- base::paste0(
   mail_houses[1], mail_houses[2], mail_houses[3], mail_houses[4], mail_houses[5]
 )
 
-# enviando e-mail com mailR
+# enviando e-mail com mailR ----
 mailR::send.mail(
   from = "noreply.houses@gmail.com",
   to = "noreply.houses@gmail.com",
